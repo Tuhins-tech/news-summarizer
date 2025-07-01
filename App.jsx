@@ -12,21 +12,27 @@ const App = () => {
   const [error, setError] = useState('');
   const [category, setCategory] = useState('general');
 
-  const fetchArticles = async (cat = 'general') => {
+  const fetchArticles = async (query = '') => {
     setLoading(true);
     setError('');
     try {
-      const endpoint = query =>
-        `https://newsapi.org/v2/top-headlines?${
-          query ? `q=${query}&` : ''
-        }category=${cat}&country=us&apiKey=${import.meta.env.VITE_NEWS_API_KEY}`;
+      const apiKey = import.meta.env.VITE_NEWS_API_KEY;
+      if (!apiKey) throw new Error('Missing API Key in .env');
 
-      const { data } = await axios.get(endpoint());
-      if (!data.articles || data.articles.length === 0) throw new Error('No results');
+      const url = `https://newsapi.org/v2/top-headlines?${
+        query ? `q=${query}&` : ''
+      }category=${category}&country=us&apiKey=${apiKey}`;
+
+      const { data } = await axios.get(url);
+
+      if (!data.articles || data.articles.length === 0) {
+        throw new Error('No articles found for this category.');
+      }
+
       setArticles(data.articles);
     } catch (err) {
-      console.error(err);
-      setError('⚠️ Could not fetch articles. Check your internet or API key.');
+      console.error('Fetch error:', err.message);
+      setError('⚠️ Could not fetch articles. Please check your internet connection or API key.');
     } finally {
       setLoading(false);
     }
@@ -34,18 +40,23 @@ const App = () => {
 
   useEffect(() => {
     fetchArticles();
-  }, []);
+  }, [category]); // 🔁 Fetch again if category changes
 
   return (
     <div>
       <Navbar onSearch={fetchArticles} />
-      <Tabs onChangeCategory={(cat) => { setCategory(cat); fetchArticles(cat); }} />
-      {loading && <p>Loading...</p>}
-      {error && <p>{error}</p>}
-      {!selectedArticle ? (
-        <ArticleList articles={articles} onSelect={setSelectedArticle} />
-      ) : (
-        <ArticleDetail article={selectedArticle} onBack={() => setSelectedArticle(null)} />
+      <Tabs onChangeCategory={(cat) => {
+        setCategory(cat);
+        setSelectedArticle(null); // Reset detail view on category change
+      }} />
+      {loading && <p>🔄 Loading articles...</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {!loading && !error && (
+        !selectedArticle ? (
+          <ArticleList articles={articles} onSelect={setSelectedArticle} />
+        ) : (
+          <ArticleDetail article={selectedArticle} onBack={() => setSelectedArticle(null)} />
+        )
       )}
     </div>
   );
